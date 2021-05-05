@@ -2,6 +2,8 @@
 #include <iostream>
 #include <set>
 #include <algorithm>
+#include <fstream>
+
 
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
@@ -38,6 +40,7 @@ int VulkanRenderer::init(GLFWwindow* window)
 		getPhysicalDevice();
 		createLogicalDevice();
 		createSwapChain();
+		createGraphicsPipeline();
 	}
 	catch (std::runtime_error& e) {
 		std::cout << "ERROR: " << e.what() << std::endl;
@@ -288,6 +291,59 @@ VkImageView VulkanRenderer::createImageView(VkImage image, VkFormat format, VkIm
 	return imageView;
 }
 
+VkShaderModule VulkanRenderer::createShaderModule(std::vector<char>& code)
+{
+	VkShaderModuleCreateInfo createInfo{};
+	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	createInfo.codeSize = code.size();
+	createInfo.pCode = reinterpret_cast<uint32_t*>(code.data());
+
+	VkShaderModule module;
+	VkResult result = vkCreateShaderModule(m_device.logicalDevice, &createInfo, nullptr, &module);
+
+	if (result != VK_SUCCESS) {
+		throw std::runtime_error("Failed to create shader module");
+	}
+
+	return module;
+}
+
+void VulkanRenderer::createGraphicsPipeline()
+{
+	auto vertexShaderCode = readFile("../shaders/vert.spv");
+	auto fragmentShaderCode = readFile("../shaders/frag.spv");
+
+	VkShaderModule vertexShaderModule = createShaderModule(vertexShaderCode);
+	VkShaderModule fragmentShaderModule = createShaderModule(fragmentShaderCode);
+
+	// Create pipeline stages
+	
+	// Vertex stage
+	VkPipelineShaderStageCreateInfo vertexStageCreateInfo{};
+	vertexStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	vertexStageCreateInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+	vertexStageCreateInfo.module = vertexShaderModule;
+	vertexStageCreateInfo.pName = "main";
+
+	// Fragment stage
+	VkPipelineShaderStageCreateInfo fragmentStageCreateInfo{};
+	vertexStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	vertexStageCreateInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+	vertexStageCreateInfo.module = fragmentShaderModule;
+	vertexStageCreateInfo.pName = "main";
+
+	// Put all stages in an array as required by the pipeline creation
+	VkPipelineShaderStageCreateInfo shaderStageCreateInfos[] = { vertexStageCreateInfo, fragmentStageCreateInfo };
+
+	// Create the pipeline
+	
+
+
+	// Clean up shader modules
+	vkDestroyShaderModule(m_device.logicalDevice, fragmentShaderModule, nullptr);
+	vkDestroyShaderModule(m_device.logicalDevice, vertexShaderModule, nullptr);
+}
+
 bool VulkanRenderer::checkInstanceExtensionSupport(const NameList_t& requiredExtensions) 
 {
 	uint32_t extensionCount = 0;
@@ -475,4 +531,21 @@ SwapChainDetails VulkanRenderer::getSwapChainDetails(VkPhysicalDevice device)
 		vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &presentationCount, swapChainDetails.presentationModes.data());
 	}
 	return swapChainDetails;
+}
+
+std::vector<char> VulkanRenderer::readFile(const std::string& filename)
+{
+	std::ifstream file(filename, std::ios::binary | std::ios::ate);
+	if (!file.is_open()) {
+		throw std::runtime_error("Failed to open file");
+	}
+
+	size_t fileSize = static_cast<size_t>(file.tellg());
+
+	std::vector<char> fileBuffer(fileSize);
+	file.seekg(0);
+	file.read(fileBuffer.data(), fileSize);
+	file.close();
+
+	return fileBuffer;
 }

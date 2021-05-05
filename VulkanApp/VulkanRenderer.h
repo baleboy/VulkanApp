@@ -46,7 +46,7 @@ private:
 	void createLogicalDevice();
 	void createSurface();
 	void createSwapChain();
-	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags flags);
+	void createGraphicsPipeline();
 
 	// Check
 	using NameList_t = std::vector<const char*>;
@@ -63,6 +63,10 @@ private:
 	// Utility
 	QueueFamilyIndices getQueueFamilyIndices(VkPhysicalDevice device);
 	SwapChainDetails getSwapChainDetails(VkPhysicalDevice device);
+	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags flags);
+	VkShaderModule createShaderModule(std::vector<char>& code);
+
+	static std::vector<char> readFile(const std::string& filename);
 
 };
 
