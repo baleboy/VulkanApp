@@ -37,6 +37,7 @@ private:
 
 	VkFormat m_swapChainImageFormat;
 	VkExtent2D m_swapChainExtent;
+	VkPipelineLayout m_pipelineLayout;
 
 	// Vulkan helpers
 
