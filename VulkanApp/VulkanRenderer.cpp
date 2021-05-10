@@ -3,7 +3,7 @@
 #include <set>
 #include <algorithm>
 #include <fstream>
-
+#include <array>
 
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
@@ -40,6 +40,7 @@ int VulkanRenderer::init(GLFWwindow* window)
 		getPhysicalDevice();
 		createLogicalDevice();
 		createSwapChain();
+		createRenderPass();
 		createGraphicsPipeline();
 	}
 	catch (std::runtime_error& e) {
@@ -53,7 +54,9 @@ int VulkanRenderer::init(GLFWwindow* window)
 void VulkanRenderer::cleanup()
 {
 	// cleanup in reverse creation order
+	vkDestroyPipeline(m_device.logicalDevice, m_graphicsPipeline, nullptr);
 	vkDestroyPipelineLayout(m_device.logicalDevice, m_pipelineLayout, nullptr);
+	vkDestroyRenderPass(m_device.logicalDevice, m_renderPass, nullptr);
 	for (const auto& swapChainImage : m_swapChainImages) {
 		vkDestroyImageView(m_device.logicalDevice, swapChainImage.imageView, nullptr);
 	}
@@ -113,9 +116,9 @@ void VulkanRenderer::createInstance()
 		createInfo.ppEnabledLayerNames = nullptr;
 	}
 
-	VkResult res = vkCreateInstance(&createInfo, nullptr, &m_instance);
+	VkResult result = vkCreateInstance(&createInfo, nullptr, &m_instance);
 
-	if (res != VK_SUCCESS) {
+	if (result != VK_SUCCESS) {
 		throw std::runtime_error("Failed to create a Vulkan instance");
 	}
 }
@@ -138,9 +141,14 @@ void VulkanRenderer::getPhysicalDevice()
 			m_device.physicalDevice = device;
 		}
 	}
+
 	if (m_device.physicalDevice == nullptr) {
 		throw std::runtime_error("No suitable physical device found");
 	}
+
+	VkPhysicalDeviceProperties deviceProperties{};
+	vkGetPhysicalDeviceProperties(m_device.physicalDevice, &deviceProperties);
+	std::cout << "Selected physical device " << deviceProperties.deviceName << std::endl;
 }
 
 void VulkanRenderer::createLogicalDevice()
@@ -262,6 +270,77 @@ void VulkanRenderer::createSwapChain()
 	}
 }
 
+void VulkanRenderer::createRenderPass()
+{
+	// describe color attachment
+	VkAttachmentDescription colorAttachment{};
+	colorAttachment.format = m_swapChainImageFormat;
+	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+	// reference to the attachment in the render pass, for subpass
+	VkAttachmentReference colorAttachmentReference{};
+	colorAttachmentReference.attachment = 0;
+	colorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	// describe subpass (could be many, we have only one)
+	VkSubpassDescription subpass{};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.colorAttachmentCount = 1;
+	subpass.pColorAttachments = &colorAttachmentReference;
+
+	// Subpass dependenciues
+
+	// Conversion from VK_IMAGE_LAYOUT_UNDEFINED to VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+	//
+	// Must happen after the input pipeline has completed and before the subpass color attachment
+	// output
+	std::array<VkSubpassDependency, 2> subpassDependencies;
+	subpassDependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+	subpassDependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+	subpassDependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+
+	subpassDependencies[0].dstSubpass = 0;
+	subpassDependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	subpassDependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+	subpassDependencies[0].dependencyFlags = 0;
+
+	// Conversion from VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL to VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+	//
+	// Must happen after the subpass color attachment output and before the input pipeline
+	// has completed
+	subpassDependencies[1].srcSubpass = 0;
+	subpassDependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	subpassDependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+
+	subpassDependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+	subpassDependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+	subpassDependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+	subpassDependencies[1].dependencyFlags = 0;
+
+	// Create information for renderpass
+	VkRenderPassCreateInfo createInfo{};
+	createInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	createInfo.attachmentCount = 1;
+	createInfo.pAttachments = &colorAttachment;
+	createInfo.subpassCount = 1;
+	createInfo.pSubpasses = &subpass;
+	createInfo.dependencyCount = static_cast<uint32_t>(subpassDependencies.size());
+	createInfo.pDependencies = subpassDependencies.data();
+
+	VkResult result = vkCreateRenderPass(m_device.logicalDevice, &createInfo, nullptr, &m_renderPass);
+	if (result != VK_SUCCESS) {
+		throw std::runtime_error("Failed to create render pass");
+	}
+
+
+}
+
 VkImageView VulkanRenderer::createImageView(VkImage image, VkFormat format, VkImageAspectFlags flags)
 {
 	VkImageViewCreateInfo createInfo{};
@@ -328,13 +407,13 @@ void VulkanRenderer::createGraphicsPipeline()
 
 	// Fragment stage
 	VkPipelineShaderStageCreateInfo fragmentStageCreateInfo{};
-	vertexStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	vertexStageCreateInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	vertexStageCreateInfo.module = fragmentShaderModule;
-	vertexStageCreateInfo.pName = "main";
+	fragmentStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	fragmentStageCreateInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+	fragmentStageCreateInfo.module = fragmentShaderModule;
+	fragmentStageCreateInfo.pName = "main";
 
 	// Put all stages in an array as required by the pipeline creation
-	VkPipelineShaderStageCreateInfo shaderStageCreateInfos[] = { vertexStageCreateInfo, fragmentStageCreateInfo };
+	VkPipelineShaderStageCreateInfo shaderStageInfos[] = { vertexStageCreateInfo, fragmentStageCreateInfo };
 
 	// Vertex Input
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo {};
@@ -419,6 +498,30 @@ void VulkanRenderer::createGraphicsPipeline()
 	}
 
 	// TODO - add depth stencil testing
+	VkGraphicsPipelineCreateInfo createInfo{};
+	createInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	createInfo.stageCount = 2;
+	createInfo.pStages = shaderStageInfos;
+	createInfo.pVertexInputState = &vertexInputInfo;
+	createInfo.pInputAssemblyState = &inputAssemblyInfo;
+	createInfo.pViewportState = &viewportInfo;
+	createInfo.pDynamicState = nullptr;
+	createInfo.pRasterizationState = &rasterizerInfo;
+	createInfo.pMultisampleState = &multisamplingInfo;
+	createInfo.pColorBlendState = &colorBlendInfo;
+	createInfo.pDepthStencilState = nullptr;
+	createInfo.layout = m_pipelineLayout;
+	createInfo.renderPass = m_renderPass;
+	createInfo.subpass = 0;
+	createInfo.basePipelineHandle = VK_NULL_HANDLE;
+	createInfo.basePipelineIndex = -1;
+
+	result = vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1,
+		&createInfo, nullptr, &m_graphicsPipeline);
+
+	if (result != VK_SUCCESS) {
+		throw std::runtime_error("Failed to create graphics pipeline");
+	}
 
 	// Destroy shader modules
 	vkDestroyShaderModule(m_device.logicalDevice, fragmentShaderModule, nullptr);
