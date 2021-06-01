@@ -33,13 +33,19 @@ private:
 	VkSurfaceKHR m_surface;
 	VkSwapchainKHR m_swapChain;
 
+	// Elements in the below vectors are mapped 1:1 - command buffer
+	// at index i will only ever use framebuffer i and swapchainimage i
 	std::vector<SwapChainImage> m_swapChainImages;
+	std::vector<VkFramebuffer> m_swapChainFramebuffers;
+	std::vector<VkCommandBuffer> m_commandBuffers;
 
 	VkFormat m_swapChainImageFormat;
 	VkExtent2D m_swapChainExtent;
 	VkPipelineLayout m_pipelineLayout;
 	VkRenderPass m_renderPass;
 	VkPipeline m_graphicsPipeline;
+
+	VkCommandPool m_graphicsCommandPool;
 
 	// Vulkan helpers
 
@@ -51,6 +57,12 @@ private:
 	void createSwapChain();
 	void createRenderPass();
 	void createGraphicsPipeline();
+	void createFramebuffers();
+	void createCommandPool();
+	void createCommandBuffers();
+
+	// Record commands
+	void recordCommands();
 
 	// Check
 	using NameList_t = std::vector<const char*>;
