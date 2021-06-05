@@ -32,7 +32,7 @@ private:
 	VkQueue m_graphicsQueue;
 	VkQueue m_presentationQueue;
 	VkSurfaceKHR m_surface;
-	VkSwapchainKHR m_swapChain;
+	VkSwapchainKHR m_swapchain;
 
 	// Elements in the below vectors are mapped 1:1 - command buffer
 	// at index i will only ever use framebuffer i and swapchainimage i

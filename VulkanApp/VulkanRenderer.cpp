@@ -73,7 +73,7 @@ void VulkanRenderer::cleanup()
 		vkDestroyImageView(m_device.logicalDevice, swapChainImage.imageView, nullptr);
 	}
 
-	vkDestroySwapchainKHR(m_device.logicalDevice, m_swapChain, nullptr);
+	vkDestroySwapchainKHR(m_device.logicalDevice, m_swapchain, nullptr);
 	vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
 	vkDestroyDevice(m_device.logicalDevice, nullptr);
 	vkDestroyInstance(m_instance, nullptr);
@@ -81,6 +81,44 @@ void VulkanRenderer::cleanup()
 
 void VulkanRenderer::draw()
 {
+	// Get next image
+	uint32_t imageIndex;
+	vkAcquireNextImageKHR(m_device.logicalDevice, m_swapchain, std::numeric_limits<uint64_t>::max(),
+		m_imageAvailable, VK_NULL_HANDLE, &imageIndex);
+
+	// Submit command buffer
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.waitSemaphoreCount = 1;
+	submitInfo.pWaitSemaphores = &m_imageAvailable;
+	VkPipelineStageFlags waitStages[] = {
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+	};
+	submitInfo.pWaitDstStageMask = waitStages;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &m_commandBuffers[imageIndex];
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = &m_renderFinished;
+
+	VkResult result = vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+	if (result != VK_SUCCESS) {
+		throw std::runtime_error("Failed to submit command buffer to queue.");
+	}
+
+	// Present rendered image to screen
+	VkPresentInfoKHR presentInfo{};
+	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	presentInfo.waitSemaphoreCount = 1;
+	presentInfo.pWaitSemaphores = &m_renderFinished;
+	presentInfo.swapchainCount = 1;
+	presentInfo.pSwapchains = &m_swapchain;
+	presentInfo.pImageIndices = &imageIndex;
+
+	result = vkQueuePresentKHR(m_presentationQueue, &presentInfo);
+	if (result != VK_SUCCESS) {
+		throw std::runtime_error("Failed to present image");
+	}
+
 }
 
 void VulkanRenderer::createInstance()
@@ -263,7 +301,7 @@ void VulkanRenderer::createSwapChain()
 
 	createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-	VkResult result = vkCreateSwapchainKHR(m_device.logicalDevice, &createInfo, nullptr, &m_swapChain);
+	VkResult result = vkCreateSwapchainKHR(m_device.logicalDevice, &createInfo, nullptr, &m_swapchain);
 
 	if (result != VK_SUCCESS) {
 		throw std::runtime_error("Failed to create swapchain!");
@@ -273,9 +311,9 @@ void VulkanRenderer::createSwapChain()
 	m_swapChainExtent = extent;
 
 	uint32_t swapChainImageCount = 0;
-	vkGetSwapchainImagesKHR(m_device.logicalDevice, m_swapChain, &swapChainImageCount, nullptr);
+	vkGetSwapchainImagesKHR(m_device.logicalDevice, m_swapchain, &swapChainImageCount, nullptr);
 	std::vector<VkImage> images(swapChainImageCount);
-	vkGetSwapchainImagesKHR(m_device.logicalDevice, m_swapChain, &swapChainImageCount, images.data());
+	vkGetSwapchainImagesKHR(m_device.logicalDevice, m_swapchain, &swapChainImageCount, images.data());
 
 	for (const auto& image : images) {
 		SwapChainImage swapChainImage{};
