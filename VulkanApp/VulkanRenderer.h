@@ -21,6 +21,8 @@ public:
 private:
 	GLFWwindow* m_window;
 
+	int m_currentFrame = 0;
+
 	// Vulkan data structures
 	VkInstance m_instance;
 
@@ -48,8 +50,8 @@ private:
 
 	VkCommandPool m_graphicsCommandPool;
 
-	VkSemaphore m_imageAvailable;
-	VkSemaphore m_renderFinished;
+	std::vector<VkSemaphore> m_imageAvailable;
+	std::vector<VkSemaphore> m_renderFinished;
 
 	// Vulkan helpers
 

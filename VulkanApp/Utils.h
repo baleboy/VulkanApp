@@ -4,6 +4,8 @@ const std::vector<const char*> deviceExtensions {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME 
 };
 
+const int MAX_FRAME_DRAWS = 2;
+
 struct QueueFamilyIndices {
 	int graphicsFamily = -1;
 	int presentationFamily = -1;

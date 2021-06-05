@@ -62,9 +62,10 @@ void VulkanRenderer::cleanup()
 	vkDeviceWaitIdle(m_device.logicalDevice);
 
 	// cleanup in reverse creation order
-	vkDestroySemaphore(m_device.logicalDevice, m_imageAvailable, nullptr);
-	vkDestroySemaphore(m_device.logicalDevice, m_renderFinished, nullptr);
-
+	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++) {
+		vkDestroySemaphore(m_device.logicalDevice, m_imageAvailable[i], nullptr);
+		vkDestroySemaphore(m_device.logicalDevice, m_renderFinished[i], nullptr);
+	}
 	vkDestroyCommandPool(m_device.logicalDevice, m_graphicsCommandPool, nullptr);
 	for (auto framebuffer : m_swapChainFramebuffers) {
 		vkDestroyFramebuffer(m_device.logicalDevice, framebuffer, nullptr);
@@ -87,13 +88,13 @@ void VulkanRenderer::draw()
 	// Get next image
 	uint32_t imageIndex;
 	vkAcquireNextImageKHR(m_device.logicalDevice, m_swapchain, std::numeric_limits<uint64_t>::max(),
-		m_imageAvailable, VK_NULL_HANDLE, &imageIndex);
+		m_imageAvailable[m_currentFrame], VK_NULL_HANDLE, &imageIndex);
 
 	// Submit command buffer
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.waitSemaphoreCount = 1;
-	submitInfo.pWaitSemaphores = &m_imageAvailable;
+	submitInfo.pWaitSemaphores = &m_imageAvailable[m_currentFrame];
 	VkPipelineStageFlags waitStages[] = {
 		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
 	};
@@ -101,7 +102,7 @@ void VulkanRenderer::draw()
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &m_commandBuffers[imageIndex];
 	submitInfo.signalSemaphoreCount = 1;
-	submitInfo.pSignalSemaphores = &m_renderFinished;
+	submitInfo.pSignalSemaphores = &m_renderFinished[m_currentFrame];
 
 	VkResult result = vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
 	if (result != VK_SUCCESS) {
@@ -112,7 +113,7 @@ void VulkanRenderer::draw()
 	VkPresentInfoKHR presentInfo{};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	presentInfo.waitSemaphoreCount = 1;
-	presentInfo.pWaitSemaphores = &m_renderFinished;
+	presentInfo.pWaitSemaphores = &m_renderFinished[m_currentFrame];
 	presentInfo.swapchainCount = 1;
 	presentInfo.pSwapchains = &m_swapchain;
 	presentInfo.pImageIndices = &imageIndex;
@@ -121,6 +122,8 @@ void VulkanRenderer::draw()
 	if (result != VK_SUCCESS) {
 		throw std::runtime_error("Failed to present image");
 	}
+
+	m_currentFrame = (m_currentFrame + 1) % MAX_FRAME_DRAWS;
 
 }
 
@@ -642,12 +645,17 @@ void VulkanRenderer::createCommandBuffers()
 
 void VulkanRenderer::createSynchronisation()
 {
+	m_imageAvailable.resize(MAX_FRAME_DRAWS);
+	m_renderFinished.resize(MAX_FRAME_DRAWS);
+
 	VkSemaphoreCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
-	if ((vkCreateSemaphore(m_device.logicalDevice, &createInfo, nullptr, &m_imageAvailable) != VK_SUCCESS) ||
-		(vkCreateSemaphore(m_device.logicalDevice, &createInfo, nullptr, &m_renderFinished) != VK_SUCCESS)) {
-		throw std::runtime_error("Failed to create semaphore(s)");
+	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++) {
+		if ((vkCreateSemaphore(m_device.logicalDevice, &createInfo, nullptr, &m_imageAvailable[i]) != VK_SUCCESS) ||
+			(vkCreateSemaphore(m_device.logicalDevice, &createInfo, nullptr, &m_renderFinished[i]) != VK_SUCCESS)) {
+			throw std::runtime_error("Failed to create semaphore(s)");
+		}
 	}
 }
 
