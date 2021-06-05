@@ -86,14 +86,14 @@ void VulkanRenderer::cleanup()
 
 void VulkanRenderer::draw()
 {
+	vkWaitForFences(m_device.logicalDevice, 1, &m_drawFences[m_currentFrame], 
+		VK_TRUE, std::numeric_limits<uint32_t>::max());
+	vkResetFences(m_device.logicalDevice, 1, &m_drawFences[m_currentFrame]);
+
 	// Get next image
 	uint32_t imageIndex;
 	vkAcquireNextImageKHR(m_device.logicalDevice, m_swapchain, std::numeric_limits<uint64_t>::max(),
 		m_imageAvailable[m_currentFrame], VK_NULL_HANDLE, &imageIndex);
-
-	vkWaitForFences(m_device.logicalDevice, 1, &m_drawFences[m_currentFrame], 
-		VK_TRUE, std::numeric_limits<uint32_t>::max());
-	vkResetFences(m_device.logicalDevice, 1, &m_drawFences[m_currentFrame]);
 
 	// Submit command buffer
 	VkSubmitInfo submitInfo{};
