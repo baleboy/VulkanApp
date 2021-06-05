@@ -45,6 +45,7 @@ int VulkanRenderer::init(GLFWwindow* window)
 		createFramebuffers();
 		createCommandPool();
 		createCommandBuffers();
+		createSynchronisation();
 		recordCommands();
 	}
 	catch (std::runtime_error& e) {
@@ -58,6 +59,9 @@ int VulkanRenderer::init(GLFWwindow* window)
 void VulkanRenderer::cleanup()
 {
 	// cleanup in reverse creation order
+	vkDestroySemaphore(m_device.logicalDevice, m_imageAvailable, nullptr);
+	vkDestroySemaphore(m_device.logicalDevice, m_renderFinished, nullptr);
+
 	vkDestroyCommandPool(m_device.logicalDevice, m_graphicsCommandPool, nullptr);
 	for (auto framebuffer : m_swapChainFramebuffers) {
 		vkDestroyFramebuffer(m_device.logicalDevice, framebuffer, nullptr);
@@ -73,6 +77,10 @@ void VulkanRenderer::cleanup()
 	vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
 	vkDestroyDevice(m_device.logicalDevice, nullptr);
 	vkDestroyInstance(m_instance, nullptr);
+}
+
+void VulkanRenderer::draw()
+{
 }
 
 void VulkanRenderer::createInstance()
@@ -497,43 +505,43 @@ void VulkanRenderer::createGraphicsPipeline()
 	layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	layoutInfo.pPushConstantRanges = nullptr;
 	layoutInfo.pushConstantRangeCount = 0;
-	layoutInfo.pSetLayouts = nullptr;
-	layoutInfo.setLayoutCount = 0;
+layoutInfo.pSetLayouts = nullptr;
+layoutInfo.setLayoutCount = 0;
 
-	VkResult result = vkCreatePipelineLayout(m_device.logicalDevice, &layoutInfo, nullptr, &m_pipelineLayout);
-	if (result != VK_SUCCESS) {
-		throw std::runtime_error("Could not create pipeline layout");
-	}
+VkResult result = vkCreatePipelineLayout(m_device.logicalDevice, &layoutInfo, nullptr, &m_pipelineLayout);
+if (result != VK_SUCCESS) {
+	throw std::runtime_error("Could not create pipeline layout");
+}
 
-	// TODO - add depth stencil testing
-	VkGraphicsPipelineCreateInfo createInfo{};
-	createInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	createInfo.stageCount = 2;
-	createInfo.pStages = shaderStageInfos;
-	createInfo.pVertexInputState = &vertexInputInfo;
-	createInfo.pInputAssemblyState = &inputAssemblyInfo;
-	createInfo.pViewportState = &viewportInfo;
-	createInfo.pDynamicState = nullptr;
-	createInfo.pRasterizationState = &rasterizerInfo;
-	createInfo.pMultisampleState = &multisamplingInfo;
-	createInfo.pColorBlendState = &colorBlendInfo;
-	createInfo.pDepthStencilState = nullptr;
-	createInfo.layout = m_pipelineLayout;
-	createInfo.renderPass = m_renderPass;
-	createInfo.subpass = 0;
-	createInfo.basePipelineHandle = VK_NULL_HANDLE;
-	createInfo.basePipelineIndex = -1;
+// TODO - add depth stencil testing
+VkGraphicsPipelineCreateInfo createInfo{};
+createInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+createInfo.stageCount = 2;
+createInfo.pStages = shaderStageInfos;
+createInfo.pVertexInputState = &vertexInputInfo;
+createInfo.pInputAssemblyState = &inputAssemblyInfo;
+createInfo.pViewportState = &viewportInfo;
+createInfo.pDynamicState = nullptr;
+createInfo.pRasterizationState = &rasterizerInfo;
+createInfo.pMultisampleState = &multisamplingInfo;
+createInfo.pColorBlendState = &colorBlendInfo;
+createInfo.pDepthStencilState = nullptr;
+createInfo.layout = m_pipelineLayout;
+createInfo.renderPass = m_renderPass;
+createInfo.subpass = 0;
+createInfo.basePipelineHandle = VK_NULL_HANDLE;
+createInfo.basePipelineIndex = -1;
 
-	result = vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1,
-		&createInfo, nullptr, &m_graphicsPipeline);
+result = vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1,
+	&createInfo, nullptr, &m_graphicsPipeline);
 
-	if (result != VK_SUCCESS) {
-		throw std::runtime_error("Failed to create graphics pipeline");
-	}
+if (result != VK_SUCCESS) {
+	throw std::runtime_error("Failed to create graphics pipeline");
+}
 
-	// Destroy shader modules
-	vkDestroyShaderModule(m_device.logicalDevice, fragmentShaderModule, nullptr);
-	vkDestroyShaderModule(m_device.logicalDevice, vertexShaderModule, nullptr);
+// Destroy shader modules
+vkDestroyShaderModule(m_device.logicalDevice, fragmentShaderModule, nullptr);
+vkDestroyShaderModule(m_device.logicalDevice, vertexShaderModule, nullptr);
 }
 
 void VulkanRenderer::createFramebuffers()
@@ -588,6 +596,17 @@ void VulkanRenderer::createCommandBuffers()
 
 	if (result != VK_SUCCESS) {
 		throw std::runtime_error("Failed to allocate command buffers");
+	}
+}
+
+void VulkanRenderer::createSynchronisation()
+{
+	VkSemaphoreCreateInfo createInfo{};
+	createInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+	if ((vkCreateSemaphore(m_device.logicalDevice, &createInfo, nullptr, &m_imageAvailable) != VK_SUCCESS) ||
+		(vkCreateSemaphore(m_device.logicalDevice, &createInfo, nullptr, &m_renderFinished) != VK_SUCCESS)) {
+		throw std::runtime_error("Failed to create semaphore(s)");
 	}
 }
 

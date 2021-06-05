@@ -24,6 +24,7 @@ int main()
 	// main loop
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
+		vkRenderer.draw();
 	}
 
 	// Clean after ourselves

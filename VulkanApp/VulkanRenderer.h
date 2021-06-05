@@ -16,6 +16,7 @@ public:
 
 	int init(GLFWwindow* window);
 	void cleanup();
+	void draw();
 
 private:
 	GLFWwindow* m_window;
@@ -47,6 +48,9 @@ private:
 
 	VkCommandPool m_graphicsCommandPool;
 
+	VkSemaphore m_imageAvailable;
+	VkSemaphore m_renderFinished;
+
 	// Vulkan helpers
 
 	// Create/get
@@ -60,6 +64,7 @@ private:
 	void createFramebuffers();
 	void createCommandPool();
 	void createCommandBuffers();
+	void createSynchronisation();
 
 	// Record commands
 	void recordCommands();
