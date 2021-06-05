@@ -58,6 +58,9 @@ int VulkanRenderer::init(GLFWwindow* window)
 
 void VulkanRenderer::cleanup()
 {
+	// wait until the device is idle before destroying anything
+	vkDeviceWaitIdle(m_device.logicalDevice);
+
 	// cleanup in reverse creation order
 	vkDestroySemaphore(m_device.logicalDevice, m_imageAvailable, nullptr);
 	vkDestroySemaphore(m_device.logicalDevice, m_renderFinished, nullptr);
