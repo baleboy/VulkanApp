@@ -50,8 +50,10 @@ private:
 
 	VkCommandPool m_graphicsCommandPool;
 
+	// Synchronization structures
 	std::vector<VkSemaphore> m_imageAvailable;
 	std::vector<VkSemaphore> m_renderFinished;
+	std::vector<VkFence> m_drawFences;
 
 	// Vulkan helpers
 

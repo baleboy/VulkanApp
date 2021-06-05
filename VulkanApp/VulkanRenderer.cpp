@@ -65,6 +65,7 @@ void VulkanRenderer::cleanup()
 	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++) {
 		vkDestroySemaphore(m_device.logicalDevice, m_imageAvailable[i], nullptr);
 		vkDestroySemaphore(m_device.logicalDevice, m_renderFinished[i], nullptr);
+		vkDestroyFence(m_device.logicalDevice, m_drawFences[i], nullptr);
 	}
 	vkDestroyCommandPool(m_device.logicalDevice, m_graphicsCommandPool, nullptr);
 	for (auto framebuffer : m_swapChainFramebuffers) {
@@ -90,6 +91,10 @@ void VulkanRenderer::draw()
 	vkAcquireNextImageKHR(m_device.logicalDevice, m_swapchain, std::numeric_limits<uint64_t>::max(),
 		m_imageAvailable[m_currentFrame], VK_NULL_HANDLE, &imageIndex);
 
+	vkWaitForFences(m_device.logicalDevice, 1, &m_drawFences[m_currentFrame], 
+		VK_TRUE, std::numeric_limits<uint32_t>::max());
+	vkResetFences(m_device.logicalDevice, 1, &m_drawFences[m_currentFrame]);
+
 	// Submit command buffer
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -104,7 +109,7 @@ void VulkanRenderer::draw()
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = &m_renderFinished[m_currentFrame];
 
-	VkResult result = vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+	VkResult result = vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, m_drawFences[m_currentFrame]);
 	if (result != VK_SUCCESS) {
 		throw std::runtime_error("Failed to submit command buffer to queue.");
 	}
@@ -647,14 +652,21 @@ void VulkanRenderer::createSynchronisation()
 {
 	m_imageAvailable.resize(MAX_FRAME_DRAWS);
 	m_renderFinished.resize(MAX_FRAME_DRAWS);
+	m_drawFences.resize(MAX_FRAME_DRAWS);
 
-	VkSemaphoreCreateInfo createInfo{};
-	createInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+	VkSemaphoreCreateInfo semaphoreInfo{};
+	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+	VkFenceCreateInfo fenceInfo{};
+	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
 	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++) {
-		if ((vkCreateSemaphore(m_device.logicalDevice, &createInfo, nullptr, &m_imageAvailable[i]) != VK_SUCCESS) ||
-			(vkCreateSemaphore(m_device.logicalDevice, &createInfo, nullptr, &m_renderFinished[i]) != VK_SUCCESS)) {
-			throw std::runtime_error("Failed to create semaphore(s)");
+		if ((vkCreateSemaphore(m_device.logicalDevice, &semaphoreInfo, nullptr, &m_imageAvailable[i]) != VK_SUCCESS) ||
+			(vkCreateSemaphore(m_device.logicalDevice, &semaphoreInfo, nullptr, &m_renderFinished[i]) != VK_SUCCESS) ||
+			(vkCreateFence(m_device.logicalDevice, &fenceInfo, nullptr, &m_drawFences[i]) != VK_SUCCESS))
+		{
+			throw std::runtime_error("Failed to create semaphore or fence");
 		}
 	}
 }
