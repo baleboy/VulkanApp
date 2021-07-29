@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "Utils.h"
+#include "Mesh.h"
 
 class VulkanRenderer
 {
@@ -22,6 +23,9 @@ private:
 	GLFWwindow* m_window;
 
 	int m_currentFrame = 0;
+
+	// Meshes
+	Mesh m_firstMesh;
 
 	// Vulkan data structures
 	VkInstance m_instance;

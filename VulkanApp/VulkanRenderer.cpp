@@ -39,6 +39,15 @@ int VulkanRenderer::init(GLFWwindow* window)
 		createSurface();
 		getPhysicalDevice();
 		createLogicalDevice();
+
+		// create meshes
+		std::vector<Vertex> triangleMesh = {
+			{{0.0, -0.4, 0.0}, {1.0, 0.0, 0.0}},
+			{{0.4, 0.4, 0.0}, {0.0, 1.0, 0.0}},
+			{{-0.4, 0.4, 0.0}, {0.0, 0.0, 1.0}} };
+
+		m_firstMesh = Mesh(m_device.physicalDevice, m_device.logicalDevice, &triangleMesh);
+
 		createSwapChain();
 		createRenderPass();
 		createGraphicsPipeline();
@@ -60,6 +69,8 @@ void VulkanRenderer::cleanup()
 {
 	// wait until the device is idle before destroying anything
 	vkDeviceWaitIdle(m_device.logicalDevice);
+
+	m_firstMesh.destroyBuffer();
 
 	// cleanup in reverse creation order
 	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++) {
@@ -480,18 +491,37 @@ void VulkanRenderer::createGraphicsPipeline()
 	// Put all stages in an array as required by the pipeline creation
 	VkPipelineShaderStageCreateInfo shaderStageInfos[] = { vertexStageCreateInfo, fragmentStageCreateInfo };
 
+	// Describe the data for a single vertex
+	VkVertexInputBindingDescription bindingDescription{};
+	bindingDescription.binding = 0;
+	bindingDescription.stride = sizeof(Vertex);
+	bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+	// Describe how data for an attribute is defined within the vertex
+	std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions;
+
+	// Position attribute
+	attributeDescriptions[0].binding = 0;
+	attributeDescriptions[0].location = 0;
+	attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+	attributeDescriptions[0].offset = offsetof(Vertex, pos);
+
+	// Color attribute
+	attributeDescriptions[1].binding = 0;
+	attributeDescriptions[1].location = 1;
+	attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+	attributeDescriptions[1].offset = offsetof(Vertex, col);
+
 	// Vertex Input
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo {};
 	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertexInputInfo.vertexAttributeDescriptionCount = 0;
-	vertexInputInfo.pVertexAttributeDescriptions = nullptr;
-	vertexInputInfo.vertexBindingDescriptionCount = 0;
-	vertexInputInfo.pVertexBindingDescriptions = nullptr;
+	vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+	vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+	vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+	vertexInputInfo.vertexBindingDescriptionCount = 1;
 
 	// Input Assembly
 	VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo{};
-	inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-	inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
 
 	// Viewport & scissor
@@ -499,6 +529,8 @@ void VulkanRenderer::createGraphicsPipeline()
 	viewport.x = 0.0f;
 	viewport.y = 0.0f;
 	viewport.width = static_cast<float>(m_swapChainExtent.width);
+	inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	viewport.height = static_cast<float>(m_swapChainExtent.height);
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
@@ -554,8 +586,8 @@ void VulkanRenderer::createGraphicsPipeline()
 	layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	layoutInfo.pPushConstantRanges = nullptr;
 	layoutInfo.pushConstantRangeCount = 0;
-layoutInfo.pSetLayouts = nullptr;
-layoutInfo.setLayoutCount = 0;
+	layoutInfo.pSetLayouts = nullptr;
+	layoutInfo.setLayoutCount = 0;
 
 VkResult result = vkCreatePipelineLayout(m_device.logicalDevice, &layoutInfo, nullptr, &m_pipelineLayout);
 if (result != VK_SUCCESS) {
@@ -705,7 +737,12 @@ void VulkanRenderer::recordCommands()
 
 		// Actually draw something using the graphics pipeline
 		vkCmdBindPipeline(m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline);
-		vkCmdDraw(m_commandBuffers[i], 3, 1, 0, 0);
+
+		// Bind buffers
+		VkBuffer vertexBuffers[] = { m_firstMesh.getVertexBuffer() };
+		VkDeviceSize offsets[] = { 0 };
+		vkCmdBindVertexBuffers(m_commandBuffers[i], 0, 1, vertexBuffers, offsets);
+ 		vkCmdDraw(m_commandBuffers[i], static_cast<uint32_t>(m_firstMesh.getVertexCount()), 1, 0, 0);
 
 		vkCmdEndRenderPass(m_commandBuffers[i]);
 
