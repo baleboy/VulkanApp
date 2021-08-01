@@ -39,6 +39,11 @@ int VulkanRenderer::init(GLFWwindow* window)
 		createSurface();
 		getPhysicalDevice();
 		createLogicalDevice();
+		createSwapChain();
+		createRenderPass();
+		createGraphicsPipeline();
+		createFramebuffers();
+		createCommandPool();
 
 		// create meshes
 		std::vector<Vertex> triangleMesh = {
@@ -46,13 +51,9 @@ int VulkanRenderer::init(GLFWwindow* window)
 			{{0.4, 0.4, 0.0}, {0.0, 1.0, 0.0}},
 			{{-0.4, 0.4, 0.0}, {0.0, 0.0, 1.0}} };
 
-		m_firstMesh = Mesh(m_device.physicalDevice, m_device.logicalDevice, &triangleMesh);
+		m_firstMesh = Mesh(m_device.physicalDevice, m_device.logicalDevice, m_graphicsQueue, m_graphicsCommandPool,
+			&triangleMesh);
 
-		createSwapChain();
-		createRenderPass();
-		createGraphicsPipeline();
-		createFramebuffers();
-		createCommandPool();
 		createCommandBuffers();
 		createSynchronisation();
 		recordCommands();

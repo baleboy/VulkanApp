@@ -91,3 +91,44 @@ static void createBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDev
 
 	vkBindBufferMemory(device, *buffer, *bufferMemory, 0);
 }
+
+static void copyBuffer(VkDevice device, VkQueue transferQueue, VkCommandPool transferCommandPool,
+	VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize bufferSize) 
+{
+	// Allocate a one-time copy command buffer (will be released at the end)
+	VkCommandBuffer transferCommandBuffer;
+
+	VkCommandBufferAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocInfo.commandBufferCount = 1;
+	allocInfo.commandPool = transferCommandPool;
+	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+
+	vkAllocateCommandBuffers(device, &allocInfo, &transferCommandBuffer);
+
+	VkCommandBufferBeginInfo commandBeginInfo{};
+	commandBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	commandBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	vkBeginCommandBuffer(transferCommandBuffer, &commandBeginInfo);
+	
+	VkBufferCopy copyRegion{};
+	copyRegion.dstOffset = 0;
+	copyRegion.srcOffset = 0;
+	copyRegion.size = bufferSize;
+
+	vkCmdCopyBuffer(transferCommandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+	vkEndCommandBuffer(transferCommandBuffer);
+
+	// Submit the command buffer to the transfer queue and wait that queue goes idle
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &transferCommandBuffer;
+
+	vkQueueSubmit(transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
+	vkQueueWaitIdle(transferQueue);
+
+	vkFreeCommandBuffers(device, transferCommandPool, 1, &transferCommandBuffer);
+}
