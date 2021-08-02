@@ -56,4 +56,5 @@ void Mesh::createVertexBuffer(std::vector<Vertex>* vertices)
 	copyBuffer(m_device, m_transferQueue, m_transferCommandPool, stagingBuffer, m_vertexBuffer, bufferSize);
 
 	vkDestroyBuffer(m_device, stagingBuffer, nullptr);
+	vkFreeMemory(m_device, stagingBufferMemory, nullptr);
 }
