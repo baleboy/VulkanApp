@@ -45,14 +45,21 @@ int VulkanRenderer::init(GLFWwindow* window)
 		createFramebuffers();
 		createCommandPool();
 
-		// create meshes
-		std::vector<Vertex> triangleMesh = {
-			{{0.0, -0.4, 0.0}, {1.0, 0.0, 0.0}},
-			{{0.4, 0.4, 0.0}, {0.0, 1.0, 0.0}},
-			{{-0.4, 0.4, 0.0}, {0.0, 0.0, 1.0}} };
+		// create mesh
+		std::vector<Vertex> meshVertices = {
+			{{0.4, -0.4, 0.0}, {1.0, 0.0, 0.0}},	// 0
+			{{0.4, 0.4, 0.0}, {0.0, 0.0, 1.0}},		// 1
+			{{-0.4, 0.4, 0.0}, {0.0, 1.0, 0.0}},	// 2
+			{{-0.4, -0.4, 0.0}, {1.0, 1.0, 0.0}},	// 3
+		};
+
+		std::vector<uint32_t> meshIndices = {
+			0, 1, 2,
+			2, 3, 0
+		};
 
 		m_firstMesh = Mesh(m_device.physicalDevice, m_device.logicalDevice, m_graphicsQueue, m_graphicsCommandPool,
-			&triangleMesh);
+			&meshVertices, &meshIndices);
 
 		createCommandBuffers();
 		createSynchronisation();
@@ -71,7 +78,7 @@ void VulkanRenderer::cleanup()
 	// wait until the device is idle before destroying anything
 	vkDeviceWaitIdle(m_device.logicalDevice);
 
-	m_firstMesh.destroyBuffer();
+	m_firstMesh.destroyBuffers();
 
 	// cleanup in reverse creation order
 	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++) {
@@ -743,7 +750,8 @@ void VulkanRenderer::recordCommands()
 		VkBuffer vertexBuffers[] = { m_firstMesh.getVertexBuffer() };
 		VkDeviceSize offsets[] = { 0 };
 		vkCmdBindVertexBuffers(m_commandBuffers[i], 0, 1, vertexBuffers, offsets);
- 		vkCmdDraw(m_commandBuffers[i], static_cast<uint32_t>(m_firstMesh.getVertexCount()), 1, 0, 0);
+		vkCmdBindIndexBuffer(m_commandBuffers[i], m_firstMesh.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+		vkCmdDrawIndexed(m_commandBuffers[i], m_firstMesh.getIndexCount(), 1, 0, 0, 0);
 
 		vkCmdEndRenderPass(m_commandBuffers[i]);
 
