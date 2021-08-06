@@ -41,6 +41,7 @@ int VulkanRenderer::init(GLFWwindow* window)
 		createLogicalDevice();
 		createSwapChain();
 		createRenderPass();
+		createDescriptorSetLayout();
 		createGraphicsPipeline();
 		createFramebuffers();
 		createCommandPool();
@@ -75,6 +76,8 @@ int VulkanRenderer::init(GLFWwindow* window)
 
 		createCommandBuffers();
 		createSynchronisation();
+		createUniformBuffers();
+		createDescriptorPool();
 		recordCommands();
 	}
 	catch (std::runtime_error& e) {
@@ -92,6 +95,13 @@ void VulkanRenderer::cleanup()
 
 	for (auto mesh : m_meshList) {
 		mesh.destroyBuffers();
+	}
+
+	vkDestroyDescriptorSetLayout(m_device.logicalDevice, m_descriptorSetLayout, nullptr);
+
+	for (size_t i = 0; i < m_uniformBuffers.size(); i++) {
+		vkDestroyBuffer(m_device.logicalDevice, m_uniformBuffers[i], nullptr);
+		vkFreeMemory(m_device.logicalDevice, m_uniformBufferMemory[i], nullptr);
 	}
 
 	// cleanup in reverse creation order
@@ -417,7 +427,7 @@ void VulkanRenderer::createRenderPass()
 	subpassDependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
 
 	subpassDependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
-	subpassDependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+	subpassDependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT; 
 	subpassDependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
 	subpassDependencies[1].dependencyFlags = 0;
 
@@ -437,6 +447,27 @@ void VulkanRenderer::createRenderPass()
 	}
 
 
+}
+
+void VulkanRenderer::createDescriptorSetLayout()
+{
+	VkDescriptorSetLayoutBinding mvpLayoutBinding{ };
+	mvpLayoutBinding.binding = 0; // As in the vertex shader
+	mvpLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	mvpLayoutBinding.descriptorCount = 1;
+	mvpLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	mvpLayoutBinding.pImmutableSamplers = nullptr; // used only for textures
+
+	VkDescriptorSetLayoutCreateInfo layoutCreateInfo{};
+	layoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutCreateInfo.bindingCount = 1;
+	layoutCreateInfo.pBindings = &mvpLayoutBinding;
+
+	VkResult result = vkCreateDescriptorSetLayout(m_device.logicalDevice, &layoutCreateInfo, nullptr, &m_descriptorSetLayout);
+
+	if (result != VK_SUCCESS) {
+		throw std::runtime_error("Unable to create descriptor set layout."); 
+	}
 }
 
 VkImageView VulkanRenderer::createImageView(VkImage image, VkFormat format, VkImageAspectFlags flags)
@@ -603,13 +634,13 @@ void VulkanRenderer::createGraphicsPipeline()
 	colorBlendInfo.attachmentCount = 1;
 	colorBlendInfo.pAttachments = &colorState;
 
-	// Pipeline layout - TODO
+	// Pipeline layout 
 	VkPipelineLayoutCreateInfo layoutInfo{};
 	layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	layoutInfo.pPushConstantRanges = nullptr;
 	layoutInfo.pushConstantRangeCount = 0;
-	layoutInfo.pSetLayouts = nullptr;
-	layoutInfo.setLayoutCount = 0;
+	layoutInfo.pSetLayouts = &m_descriptorSetLayout;
+	layoutInfo.setLayoutCount = 1;
 
 VkResult result = vkCreatePipelineLayout(m_device.logicalDevice, &layoutInfo, nullptr, &m_pipelineLayout);
 if (result != VK_SUCCESS) {
@@ -722,6 +753,42 @@ void VulkanRenderer::createSynchronisation()
 		{
 			throw std::runtime_error("Failed to create semaphore or fence");
 		}
+	}
+}
+
+void VulkanRenderer::createUniformBuffers()
+{
+	VkDeviceSize bufferSize = sizeof(MVP);
+
+	// One uniform buffer for each image
+	m_uniformBuffers.resize(m_swapChainImages.size());
+	m_uniformBufferMemory.resize(m_swapChainImages.size());
+
+	// Create uniform buffers
+	for (size_t i = 0; i < m_swapChainImages.size(); i++) {
+		createBuffer(m_device.physicalDevice, m_device.logicalDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &m_uniformBuffers[i], 
+			&m_uniformBufferMemory[i]);
+	}
+
+}
+
+void VulkanRenderer::createDescriptorPool()
+{
+	VkDescriptorPoolSize poolSize{};
+	poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	poolSize.descriptorCount = static_cast<uint32_t>(m_uniformBuffers.size());
+
+	VkDescriptorPoolCreateInfo createInfo{};
+	createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	createInfo.maxSets = static_cast<uint32_t>(m_uniformBuffers.size());
+	createInfo.poolSizeCount = 1;
+	createInfo.pPoolSizes = &poolSize;
+
+	VkResult result = vkCreateDescriptorPool(m_device.logicalDevice, &createInfo, nullptr, &m_descriptorPool);
+
+	if (result != VK_SUCCESS) {
+		throw std::runtime_error("Failed to create descriptor pool.");
 	}
 }
 

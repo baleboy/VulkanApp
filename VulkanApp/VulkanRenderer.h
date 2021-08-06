@@ -27,6 +27,13 @@ private:
 	// Meshes
 	std::vector<Mesh> m_meshList;
 
+	// Scene settings
+	struct MVP {
+		glm::mat4 projection;
+		glm::mat4 view;
+		glm::mat4 model;
+	} m_mvp;
+
 	// Vulkan data structures
 	VkInstance m_instance;
 
@@ -45,6 +52,14 @@ private:
 	std::vector<SwapChainImage> m_swapChainImages;
 	std::vector<VkFramebuffer> m_swapChainFramebuffers;
 	std::vector<VkCommandBuffer> m_commandBuffers;
+
+	// Descriptors
+	VkDescriptorSetLayout m_descriptorSetLayout;
+
+	VkDescriptorPool m_descriptorPool;
+
+	std::vector<VkBuffer> m_uniformBuffers; // one per swapchain, to avoid updating a uniform while it's bound
+	std::vector<VkDeviceMemory> m_uniformBufferMemory;
 
 	VkFormat m_swapChainImageFormat;
 	VkExtent2D m_swapChainExtent;
@@ -68,11 +83,15 @@ private:
 	void createSurface();
 	void createSwapChain();
 	void createRenderPass();
+	void createDescriptorSetLayout();
 	void createGraphicsPipeline();
 	void createFramebuffers();
 	void createCommandPool();
 	void createCommandBuffers();
 	void createSynchronisation();
+
+	void createUniformBuffers();
+	void createDescriptorPool();
 
 	// Record commands
 	void recordCommands();
