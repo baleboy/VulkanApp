@@ -25,7 +25,7 @@ private:
 	int m_currentFrame = 0;
 
 	// Meshes
-	Mesh m_firstMesh;
+	std::vector<Mesh> m_meshList;
 
 	// Vulkan data structures
 	VkInstance m_instance;
