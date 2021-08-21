@@ -2,7 +2,7 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-
+#include <glm/gtc/matrix_transform.hpp>
 #include <stdexcept>
 #include <vector>
 
@@ -18,6 +18,8 @@ public:
 	int init(GLFWwindow* window);
 	void cleanup();
 	void draw();
+
+	void updateModel(glm::mat4 newModel);
 
 private:
 	GLFWwindow* m_window;
@@ -57,6 +59,7 @@ private:
 	VkDescriptorSetLayout m_descriptorSetLayout;
 
 	VkDescriptorPool m_descriptorPool;
+	std::vector<VkDescriptorSet> m_descriptorSets;
 
 	std::vector<VkBuffer> m_uniformBuffers; // one per swapchain, to avoid updating a uniform while it's bound
 	std::vector<VkDeviceMemory> m_uniformBufferMemory;
@@ -92,6 +95,9 @@ private:
 
 	void createUniformBuffers();
 	void createDescriptorPool();
+	void createDescriptorSets();
+
+	void updateUniformBuffer(uint32_t imageIndex);
 
 	// Record commands
 	void recordCommands();

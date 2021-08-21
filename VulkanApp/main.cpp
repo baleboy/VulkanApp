@@ -21,9 +21,25 @@ int main()
 		return EXIT_FAILURE;
 	};
 
+	float delta = 0.0f;
+	float lastTime = 0.0f;
+	float angle = 0.0f;
+
 	// main loop
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
+
+		float now = glfwGetTime();
+		delta = now - lastTime;
+		lastTime = now;
+
+		// rotate camera around Y axis
+		angle += delta * 10.f;
+		if (angle > 360.0f) { angle -= 360.0f; }
+
+		vkRenderer.updateModel(glm::rotate(glm::mat4(1.0), 
+			glm::radians(angle), glm::vec3(0.0f, 0.0f, 1.0f)));
+
 		vkRenderer.draw();
 	}
 
