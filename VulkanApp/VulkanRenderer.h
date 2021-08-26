@@ -19,7 +19,7 @@ public:
 	void cleanup();
 	void draw();
 
-	void updateModel(glm::mat4 newModel);
+	void updateModel(int modelId, glm::mat4 newModel);
 
 private:
 	GLFWwindow* m_window;
@@ -30,11 +30,10 @@ private:
 	std::vector<Mesh> m_meshList;
 
 	// Scene settings
-	struct MVP {
+	struct UboViewProjection {
 		glm::mat4 projection;
 		glm::mat4 view;
-		glm::mat4 model;
-	} m_mvp;
+	} m_uboViewProjection;
 
 	// Vulkan data structures
 	VkInstance m_instance;
@@ -61,8 +60,16 @@ private:
 	VkDescriptorPool m_descriptorPool;
 	std::vector<VkDescriptorSet> m_descriptorSets;
 
-	std::vector<VkBuffer> m_uniformBuffers; // one per swapchain, to avoid updating a uniform while it's bound
-	std::vector<VkDeviceMemory> m_uniformBufferMemory;
+	std::vector<VkBuffer> m_vpUniformBuffers; // one per swapchain, to avoid updating a uniform while it's bound
+	std::vector<VkDeviceMemory> m_vpUniformBufferMemory;
+
+	std::vector<VkBuffer> m_modelDynamicUniformBuffers; // see above
+	std::vector<VkDeviceMemory> m_modelDynamicUniformBufferMemory;
+
+
+	VkDeviceSize m_minUniformBufferOffset;
+	size_t m_modelUniformAlignment;
+	UboModel* m_modelTransferSpace;
 
 	VkFormat m_swapChainImageFormat;
 	VkExtent2D m_swapChainExtent;
@@ -97,7 +104,8 @@ private:
 	void createDescriptorPool();
 	void createDescriptorSets();
 
-	void updateUniformBuffer(uint32_t imageIndex);
+	void updateUniformBuffers(uint32_t imageIndex);
+	void allocateDynamicBufferTransferSpace();
 
 	// Record commands
 	void recordCommands();
