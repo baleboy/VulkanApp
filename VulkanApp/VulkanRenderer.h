@@ -56,20 +56,12 @@ private:
 
 	// Descriptors
 	VkDescriptorSetLayout m_descriptorSetLayout;
-
+	VkPushConstantRange m_pushConstantRange;
 	VkDescriptorPool m_descriptorPool;
 	std::vector<VkDescriptorSet> m_descriptorSets;
 
 	std::vector<VkBuffer> m_vpUniformBuffers; // one per swapchain, to avoid updating a uniform while it's bound
 	std::vector<VkDeviceMemory> m_vpUniformBufferMemory;
-
-	std::vector<VkBuffer> m_modelDynamicUniformBuffers; // see above
-	std::vector<VkDeviceMemory> m_modelDynamicUniformBufferMemory;
-
-
-	VkDeviceSize m_minUniformBufferOffset;
-	size_t m_modelUniformAlignment;
-	UboModel* m_modelTransferSpace;
 
 	VkFormat m_swapChainImageFormat;
 	VkExtent2D m_swapChainExtent;
@@ -94,6 +86,7 @@ private:
 	void createSwapChain();
 	void createRenderPass();
 	void createDescriptorSetLayout();
+	void createPushConstantRange();
 	void createGraphicsPipeline();
 	void createFramebuffers();
 	void createCommandPool();
@@ -105,10 +98,9 @@ private:
 	void createDescriptorSets();
 
 	void updateUniformBuffers(uint32_t imageIndex);
-	void allocateDynamicBufferTransferSpace();
 
 	// Record commands
-	void recordCommands();
+	void recordCommands(uint32_t currentImage);
 
 	// Check
 	using NameList_t = std::vector<const char*>;

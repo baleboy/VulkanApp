@@ -5,7 +5,7 @@
 Mesh::Mesh(VkPhysicalDevice physicalDevice, VkDevice device, VkQueue transferQueue, VkCommandPool transferCommandPool,
 	std::vector<Vertex>* vertices, std::vector<uint32_t>* indices)
 {
-	m_uboModel.model = glm::mat4(1.0f);
+	m_model.model = glm::mat4(1.0f);
 	m_vertexCount = vertices->size();
 	m_indexCount = indices->size();
 	m_physicalDevice = physicalDevice;
@@ -19,12 +19,12 @@ Mesh::Mesh(VkPhysicalDevice physicalDevice, VkDevice device, VkQueue transferQue
 
 void Mesh::setModel(glm::mat4 newModel)
 {
-	m_uboModel.model = newModel;
+	m_model.model = newModel;
 }
 
-UboModel Mesh::getModel()
+Model Mesh::getModel()
 {
-	return m_uboModel;
+	return m_model;
 }
 
 int Mesh::getVertexCount()
