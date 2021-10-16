@@ -558,8 +558,8 @@ VkShaderModule VulkanRenderer::createShaderModule(std::vector<char>& code)
 
 void VulkanRenderer::createGraphicsPipeline()
 {
-	auto vertexShaderCode = readFile("../shaders/vert.spv");
-	auto fragmentShaderCode = readFile("../shaders/frag.spv");
+	auto vertexShaderCode = readFile("../../shaders/vert.spv");
+	auto fragmentShaderCode = readFile("../../shaders/frag.spv");
 
 	VkShaderModule vertexShaderModule = createShaderModule(vertexShaderCode);
 	VkShaderModule fragmentShaderModule = createShaderModule(fragmentShaderCode);
@@ -1143,7 +1143,7 @@ std::vector<char> VulkanRenderer::readFile(const std::string& filename)
 {
 	std::ifstream file(filename, std::ios::binary | std::ios::ate);
 	if (!file.is_open()) {
-		throw std::runtime_error("Failed to open file");
+		throw std::runtime_error("Failed to open file" + filename);
 	}
 
 	size_t fileSize = static_cast<size_t>(file.tellg());
