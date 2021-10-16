@@ -1,5 +1,6 @@
-
 #include <stdexcept>
+#include <cstring>
+
 #include "Mesh.h"
 
 Mesh::Mesh(VkPhysicalDevice physicalDevice, VkDevice device, VkQueue transferQueue, VkCommandPool transferCommandPool,

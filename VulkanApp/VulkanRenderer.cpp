@@ -1,9 +1,11 @@
-#include "VulkanRenderer.h"
 #include <iostream>
 #include <set>
 #include <algorithm>
 #include <fstream>
 #include <array>
+#include <cstring>
+
+#include "VulkanRenderer.h"
 
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
